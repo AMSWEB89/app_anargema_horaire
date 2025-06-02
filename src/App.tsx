@@ -73,7 +73,7 @@ function App() {
     return (
       <Router>
         <Routes>
-          <Route path="/" element={<AdminInterface onLogout={handleLogout} />} />
+          <Route path="/\" element={<AdminInterface onLogout={handleLogout} />} />
           <Route path="/administrateur" element={<AdminDashboard onLogout={handleLogout} />} />
           <Route path="/utilisateur" element={<SchedulePage onLogout={handleLogout} userRole="user" />} />
           <Route path="/observateur" element={<ObserverDashboard onLogout={handleLogout} />} />
