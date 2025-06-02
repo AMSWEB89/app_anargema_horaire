@@ -73,7 +73,7 @@ function App() {
     return (
       <Router>
         <Routes>
-          <Route path="/\" element={<AdminInterface onLogout={handleLogout} />} />
+          <Route path="/" element={<AdminInterface onLogout={handleLogout} />} />
           <Route path="/administrateur" element={<AdminDashboard onLogout={handleLogout} />} />
           <Route path="/utilisateur" element={<SchedulePage onLogout={handleLogout} userRole="user" />} />
           <Route path="/observateur" element={<ObserverDashboard onLogout={handleLogout} />} />
@@ -130,7 +130,7 @@ function App() {
       <div 
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: `url('/OIP.jpeg')`,
+          backgroundImage: `url('/djamaa.jpeg')`,
           filter: 'brightness(0.6)'
         }}
       />
