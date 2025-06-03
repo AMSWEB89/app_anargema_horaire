@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Trash2, Search, Lock, Users } from 'lucide-react';
+import { Calendar, Clock, Trash2, Search, Lock, Users, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import NavBar from '../components/NavBar';
 
@@ -52,10 +52,13 @@ export default function SchedulePage({ onLogout, userRole }: SchedulePageProps) 
   const [showPresentList, setShowPresentList] = useState(false);
   const [presentEmployees, setPresentEmployees] = useState<Employee[]>([]);
   const [presentSearchTerm, setPresentSearchTerm] = useState('');
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [clearAdminPassword, setClearAdminPassword] = useState('');
   const searchRef = useRef<HTMLDivElement>(null);
   const deleteModalRef = useRef<HTMLDivElement>(null);
   const absentListRef = useRef<HTMLDivElement>(null);
   const presentListRef = useRef<HTMLDivElement>(null);
+  const clearModalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -357,6 +360,44 @@ export default function SchedulePage({ onLogout, userRole }: SchedulePageProps) 
     setTimeout(() => setMessage(null), 3000);
   };
 
+  const handleClearAbsentList = async () => {
+    try {
+      // Verify admin password
+      const { data: adminUser, error: adminError } = await supabase
+        .from('userapplication')
+        .select('password_hash')
+        .eq('role', 'admin')
+        .single();
+
+      if (adminError) throw new Error('Erreur lors de la vérification du mot de passe');
+      if (adminUser.password_hash !== clearAdminPassword) {
+        throw new Error('Mot de passe administrateur incorrect');
+      }
+
+      // Clear all attendance records for today
+      const { error: clearError } = await supabase
+        .from('employee_attendance')
+        .delete()
+        .eq('date', selectedDate)
+        .eq('is_present', false);
+
+      if (clearError) throw clearError;
+
+      setMessage({ type: 'success', text: 'Liste des employés supprimés vidée avec succès' });
+      fetchAbsentEmployees();
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error.message || 'Erreur lors de la suppression'
+      });
+    } finally {
+      setShowClearConfirmation(false);
+      setClearAdminPassword('');
+    }
+
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   const handleEmployeeSelect = (emp: Employee) => {
     setSelectedEmployee(emp.id);
     setSelectedEmployeeName(`${emp.nom} ${emp.prenom} - ${emp.departement}`);
@@ -420,6 +461,55 @@ export default function SchedulePage({ onLogout, userRole }: SchedulePageProps) 
             </button>
             <button
               onClick={confirmDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              Confirmer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ClearConfirmationModal = () => {
+    if (!showClearConfirmation) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div ref={clearModalRef} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <h3 className="text-xl font-semibold text-red-900 mb-4">
+            Confirmation de suppression
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Veuillez entrer le mot de passe administrateur pour confirmer la suppression de la liste.
+          </p>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-emerald-800 mb-2">
+              Mot de passe administrateur
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-emerald-600" />
+              <input
+                type="password"
+                value={clearAdminPassword}
+                onChange={(e) => setClearAdminPassword(e.target.value)}
+                className="w-full pl-10 p-3 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => {
+                setShowClearConfirmation(false);
+                setClearAdminPassword('');
+              }}
+              className="px-4 py-2 text-emerald-600 hover:text-emerald-800"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleClearAbsentList}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
               Confirmer
@@ -539,16 +629,25 @@ export default function SchedulePage({ onLogout, userRole }: SchedulePageProps) 
                 <PresentEmployeesList />
               </div>
               <div className="relative">
-                <button
-                  onClick={() => setShowAbsentList(!showAbsentList)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-                >
-                  <Users size={20} />
-                  <span>Employés supprimer aujourd'hui !</span>
-                  <span className="ml-2 bg-white text-red-600 px-2 py-0.5 rounded-full text-sm font-semibold">
-                    {absentEmployees.length}
-                  </span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAbsentList(!showAbsentList)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                  >
+                    <Users size={20} />
+                    <span>Employés supprimer aujourd'hui !</span>
+                    <span className="ml-2 bg-white text-red-600 px-2 py-0.5 rounded-full text-sm font-semibold">
+                      {absentEmployees.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setShowClearConfirmation(true)}
+                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    title="Vider la liste"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
                 <AbsentEmployeesList />
               </div>
             </div>
@@ -659,6 +758,7 @@ export default function SchedulePage({ onLogout, userRole }: SchedulePageProps) 
                   <div>
                     <label className="block text-sm font-medium text-emerald-800 mb-2">
                       Début pause
+                    
                     </label>
                     <input
                       type="time"
@@ -784,6 +884,7 @@ export default function SchedulePage({ onLogout, userRole }: SchedulePageProps) 
         </div>
       </div>
       <DeleteConfirmationModal />
+      <ClearConfirmationModal />
     </div>
   );
 }
